@@ -1,0 +1,26 @@
+{
+  "name": "uni-hack-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.19.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.58.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "google-auth-library": "^11.0.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
