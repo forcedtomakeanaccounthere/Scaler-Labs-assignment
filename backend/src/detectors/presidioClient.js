@@ -40,7 +40,9 @@ export async function analyzeWithPresidio(text) {
     const response = await axios.post(
       `${PYTHON_SERVICE_URL}/analyze`,
       { text, language: "en" },
-      { timeout: 10000 }
+      // The Python service is optional. Keep this short so an unavailable
+      // local service never makes the document pipeline look stuck.
+      { timeout: 2000 }
     );
 
     serviceAvailable = true;
@@ -106,7 +108,10 @@ function fallbackNer(text) {
 
   // Company names with suffixes (must not span across newlines)
   // Enhanced to handle all-caps company names like "KSH INTERNATIONAL LIMITED"
-  const orgPattern = /\b[A-Z][A-Za-z &]+(?: +[A-Z][A-Za-z &]+)*(?:Pvt\.?\s?Ltd\.?|LLP|Inc\.?|Corp\.?|Limited|Enterprises|Associates|Company|Co\.|Corporation|Group)\b/gi;
+  // Each word is matched independently and the number of leading words is
+  // bounded. The previous expression used overlapping unbounded `+` groups,
+  // which can cause catastrophic backtracking on a long DOCX text stream.
+  const orgPattern = /\b[A-Z][A-Za-z&]*(?:[ \t]+[A-Z][A-Za-z&]*){0,8}[ \t]+(?:Pvt\.?\s?Ltd\.?|PVT\.?\s?LTD\.?|LLP|Inc\.?|INC\.?|Corp\.?|CORP\.?|Limited|LIMITED|Enterprises|ENTERPRISES|Associates|ASSOCIATES|Company|COMPANY|Co\.|CO\.|Corporation|CORPORATION|Group|GROUP)\b/g;
   let m;
   while ((m = orgPattern.exec(text)) !== null) {
     results.push({

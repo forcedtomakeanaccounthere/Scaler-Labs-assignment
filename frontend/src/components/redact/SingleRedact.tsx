@@ -388,7 +388,7 @@ function ProgressPanel({
                 style={{
                   color: isDone ? "var(--text-secondary)" : isCurrent ? "var(--text-primary)" : "var(--text-tertiary)",
                   fontWeight: isCurrent ? 600 : 400,
-                  textDecoration: isDone ? "line-through" : "none",
+                  textDecorationLine: isDone ? "line-through" : "none",
                   textDecorationColor: "var(--text-tertiary)",
                 }}
               >
@@ -493,7 +493,7 @@ function InfoPanel({ isGuest, guestUsesLeft }: { isGuest: boolean; guestUsesLeft
         <div className="text-[11px] font-bold uppercase tracking-widest mono mb-3" style={{ color: "var(--text-tertiary)" }}>
           What gets detected
         </div>
-        <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
+        <div data-lenis-prevent className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
           {[
             { type: "PERSON",       desc: "Full names, prefixed names",   color: "#FF9F0A", icon: (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

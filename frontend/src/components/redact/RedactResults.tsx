@@ -51,7 +51,7 @@ export default function RedactResults({ job }: { job: Job }) {
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div data-lenis-prevent className="p-4">
         {tab === "entities" && <EntitiesTab entities={entities} />}
         {tab === "metrics" && <MetricsTab evaluation={job.evaluation} />}
         {tab === "audit" && <AuditTab job={job} />}
@@ -120,7 +120,7 @@ function EntitiesTab({ entities }: { entities: NonNullable<Job["entities"]> }) {
           <span className="col-span-1">Source</span>
           <span className="col-span-1">Action</span>
         </div>
-        <div className="max-h-[300px] overflow-y-auto">
+        <div data-lenis-prevent className="max-h-[300px] overflow-y-auto">
           {filtered.map((e, i) => (
             <div
               key={e._id || i}
@@ -255,7 +255,7 @@ function MetricsTab({ evaluation }: { evaluation: Job["evaluation"] }) {
 function AuditTab({ job }: { job: Job }) {
   const logs = (job as any).auditLog || [];
   return (
-    <div className="space-y-2 max-h-[320px] overflow-y-auto">
+    <div data-lenis-prevent className="space-y-2 max-h-[320px] overflow-y-auto">
       {logs.length === 0 ? (
         <div className="py-10 text-center text-[13px]" style={{ color: "var(--text-tertiary)" }}>No audit entries</div>
       ) : (

@@ -73,7 +73,7 @@ export default function PolicyConfig({ defaultAction, onDefaultChange, policy, o
           <div className="text-[11px] font-bold uppercase tracking-widest mono mb-2.5" style={{ color: "var(--text-tertiary)" }}>
             Per-type overrides <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(leave blank to use default)</span>
           </div>
-          <div className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar">
+          <div data-lenis-prevent className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar">
             {ENTITY_TYPES.map((type) => {
               const val = policy[type] || "";
               const activeAction = ACTIONS.find((a) => a.value === val);

@@ -38,7 +38,9 @@ export async function extractDocxContent(filePath) {
     const response = await axios.post(
       `${PYTHON_SERVICE_URL}/extract`,
       { file_path: path.resolve(filePath) },
-      { timeout: 30000 }
+      // The Python service is optional; fall back promptly when it is not
+      // running instead of holding the UI at the extraction stage.
+      { timeout: 2000 }
     );
     return response.data;
   } catch {
@@ -139,7 +141,8 @@ export async function applyRedactions(filePath, entities, redactedImages, output
           ])
         ),
       },
-      { timeout: 60000 }
+      // As above, ZIP redaction is the supported fallback when Python is off.
+      { timeout: 2000 }
     );
 
     if (response.data.success) {
@@ -178,21 +181,30 @@ function applyRedactionsViaZip(filePath, entities, redactedImages, outputPath) {
   // Sort by text length descending to replace longer matches first (prevents partial replacements)
   actionableEntities.sort((a, b) => (b.text?.length || 0) - (a.text?.length || 0));
 
-  let replacementCount = 0;
+  const replacementsByText = new Map();
   for (const entity of actionableEntities) {
     if (!entity.text) continue;
-    
-    const replacement = getReplacementText(entity);
-    const escapedText = escapeRegex(entity.text);
-    
-    // Count matches before replacement
-    const regex = new RegExp(escapedText, "g");
-    const matches = xml.match(regex);
-    if (matches) {
-      console.log(`[applyRedactionsViaZip] Replacing "${entity.text.slice(0, 30)}" (${matches.length} occurrences) with "${replacement.slice(0, 30)}" (action: ${entity.action})`);
-      xml = xml.replace(regex, replacement);
-      replacementCount += matches.length;
+    // The same source text can be detected more than once. Preserve the first
+    // (longest-first) action, which is also how the former replacement loop
+    // behaved after it had replaced every matching occurrence.
+    if (!replacementsByText.has(entity.text)) {
+      replacementsByText.set(entity.text, getReplacementText(entity));
     }
+  }
+
+  let replacementCount = 0;
+  if (replacementsByText.size > 0) {
+    // One pass through document.xml replaces every candidate. Previously this
+    // scanned the complete XML once per entity, which is especially expensive
+    // for a long prospectus with hundreds of detected names and organisations.
+    const sourceTexts = [...replacementsByText.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map(escapeRegex);
+    const replacementRegex = new RegExp(sourceTexts.join("|"), "g");
+    xml = xml.replace(replacementRegex, (matched) => {
+      replacementCount += 1;
+      return replacementsByText.get(matched);
+    });
   }
 
   console.log(`[applyRedactionsViaZip] Total replacements made: ${replacementCount}`);
@@ -205,7 +217,6 @@ function applyRedactionsViaZip(filePath, entities, redactedImages, outputPath) {
       const fullPath = `word/media/${filename}`;
       try {
         zip.updateFile(fullPath, buffer);
-        console.log(`[applyRedactionsViaZip] Replaced image: ${filename}`);
       } catch (err) {
         console.warn(`[applyRedactionsViaZip] Failed to replace image ${filename}:`, err.message);
       }
@@ -232,7 +243,6 @@ function getReplacementText(entity) {
     default:
       replacement = "[REDACTED]";
   }
-  console.log(`[getReplacementText] "${entity.text?.slice(0, 20)}" (${entity.action}) → "${replacement?.slice(0, 20)}"`);
   return replacement;
 }
 

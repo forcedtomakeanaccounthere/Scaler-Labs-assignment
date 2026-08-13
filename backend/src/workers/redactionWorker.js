@@ -76,19 +76,26 @@ export async function processJobInline({ jobId, reviewCompleted = false }) {
       textEntities = job.entities.map((e) => (e.toObject ? e.toObject() : { ...e }));
     }
     step(jobId, "detect_images", `${images.length} image(s) found`);
-    const redactedImages = new Map();
-    const imageEntities = [];
-    for (const img of images) {
+    // Each embedded image is independent, so OCR/masking can run concurrently.
+    // This reduces total job time for documents containing several images.
+    const imageResults = await Promise.all(images.map(async (img) => {
       try {
-        const imgResult = await processImage(img);
-        if (imgResult.entities.length > 0) {
-          imageEntities.push(...imgResult.entities.map((e) => ({ ...e, imageId: img.filename })));
-        }
-        if (imgResult.redactedBuffer) redactedImages.set(img.filename, imgResult.redactedBuffer);
+        return { img, result: await processImage(img) };
       } catch (imgErr) {
         console.warn(`[InlineWorker] Image failed: ${img.filename}`, imgErr.message);
-        redactedImages.set(img.filename, await createBlackRectangle(img.buffer));
+        return {
+          img,
+          result: { entities: [], redactedBuffer: await createBlackRectangle(img.buffer) },
+        };
       }
+    }));
+    const redactedImages = new Map();
+    const imageEntities = [];
+    for (const { img, result } of imageResults) {
+      if (result.entities.length > 0) {
+        imageEntities.push(...result.entities.map((e) => ({ ...e, imageId: img.filename })));
+      }
+      if (result.redactedBuffer) redactedImages.set(img.filename, result.redactedBuffer);
     }
     const allEntities = [...textEntities, ...imageEntities];
     // Convert MongoDB Map to plain object if needed
@@ -123,12 +130,10 @@ export async function processJobInline({ jobId, reviewCompleted = false }) {
       policiedEntities.map(async (entity) => {
         if (entity.action === "PSEUDONYMIZE") {
           const fakeValue = await getPseudonym(jobId, entity.type, entity.text);
-          console.log(`[Worker] PSEUDONYMIZE: "${entity.text.slice(0, 20)}" → "${fakeValue.slice(0, 20)}"`);
           return { ...entity, fakeValue };
         }
         if (entity.action === "GENERALIZE") {
           const generalizedValue = generalize(entity);
-          console.log(`[Worker] GENERALIZE: "${entity.text.slice(0, 20)}" → "${generalizedValue}"`);
           return { ...entity, generalizedValue };
         }
         return entity;
