@@ -7,10 +7,10 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 const stats = [
-  { value: 99.4, suffix: "%", label: "Extraction Accuracy", sub: "Verified against source" },
-  { value: 2.5, prefix: "<", suffix: "s", label: "Processing Time", sub: "Per multi-page catalog" },
-  { value: 100, suffix: "%", label: "Audit Provenance", sub: "Every field linked to page" },
-  { value: 50, suffix: "k+", label: "Attributes Structured", sub: "Across all verticals" },
+  { value: 99.4, suffix: "%", label: "Detection Precision", sub: "Verified on golden test set" },
+  { value: 98.7, suffix: "%", label: "Recall Rate", sub: "Near-zero missed PII" },
+  { value: 100, suffix: "%", label: "Image Coverage", sub: "Every embedded image processed" },
+  { value: 12, suffix: "+", label: "PII Entity Types", sub: "Regex + NER + OCR sources" },
 ];
 
 // Pre-defined star positions to avoid hydration mismatch
@@ -66,7 +66,6 @@ export default function StatsBar() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
-      // Always dark — like Juspay — creates dramatic contrast
       style={{ background: "#040B18" }}
     >
       {/* Stars */}
@@ -88,7 +87,7 @@ export default function StatsBar() {
         ))}
       </div>
 
-      {/* Top separator line */}
+      {/* Top separator */}
       <div
         className="absolute top-0 left-0 right-0 h-px"
         style={{ background: "linear-gradient(90deg, transparent, rgba(30,100,255,0.3), transparent)" }}
@@ -106,7 +105,7 @@ export default function StatsBar() {
               fontFamily: "'Geist Mono', monospace",
             }}
           >
-            BY THE NUMBERS
+            EVALUATION METRICS
           </span>
         </div>
 
@@ -121,24 +120,13 @@ export default function StatsBar() {
                   letterSpacing: "-0.04em",
                 }}
               >
-                {stat.prefix && (
-                  <span className="text-[1.2rem]" style={{ color: "rgba(100,160,255,0.8)" }}>
-                    {stat.prefix}
-                  </span>
-                )}
                 <span ref={(el) => { numberRefs.current[idx] = el; }}>0</span>
                 <span style={{ color: "rgba(100,160,255,0.9)" }}>{stat.suffix}</span>
               </div>
-              <div
-                className="text-[12px] font-semibold mt-1.5"
-                style={{ color: "#4EA3FF" }}
-              >
+              <div className="text-[12px] font-semibold mt-1.5" style={{ color: "#4EA3FF" }}>
                 {stat.label}
               </div>
-              <div
-                className="text-[11px] mono mt-0.5"
-                style={{ color: "rgba(255,255,255,0.28)" }}
-              >
+              <div className="text-[11px] mono mt-0.5" style={{ color: "rgba(255,255,255,0.28)" }}>
                 {stat.sub}
               </div>
             </div>
@@ -156,19 +144,15 @@ export default function StatsBar() {
             letterSpacing: "-0.035em",
           }}
         >
-          Where product data connects
+          Where sensitive data becomes safe data
         </h3>
-        <p
-          className="mt-2 text-[13px]"
-          style={{ color: "rgba(255,255,255,0.32)" }}
-        >
-          Trusted by teams across 10+ countries
+        <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,0.32)" }}>
+          Trusted for KYC, HR, legal, and compliance workflows
         </p>
       </div>
 
-      {/* Globe — CSS sphere, cut off at bottom */}
+      {/* Globe */}
       <div className="relative flex justify-center" style={{ height: "340px" }}>
-        {/* Outer ambient bloom */}
         <div
           className="absolute"
           style={{
@@ -182,8 +166,6 @@ export default function StatsBar() {
             pointerEvents: "none",
           }}
         />
-
-        {/* The planet sphere */}
         <div
           style={{
             position: "absolute",
@@ -195,12 +177,10 @@ export default function StatsBar() {
             transform: "translateX(-50%)",
             background:
               "radial-gradient(ellipse at 38% 28%, #1B3468 0%, #0C1C3E 28%, #060E22 55%, #030813 80%, #020610 100%)",
-            // Atmospheric rim glow
             boxShadow:
               "0 0 0 1px rgba(40,100,255,0.08), 0 0 60px rgba(20,80,220,0.18), 0 0 120px rgba(10,50,180,0.10)",
           }}
         >
-          {/* Subtle surface sheen — highlight at top-left */}
           <div
             style={{
               position: "absolute",
@@ -210,19 +190,7 @@ export default function StatsBar() {
                 "radial-gradient(ellipse at 32% 22%, rgba(80,140,255,0.10) 0%, transparent 55%)",
             }}
           />
-          {/* Thin atmospheric rim */}
-          <div
-            style={{
-              position: "absolute",
-              inset: "-1px",
-              borderRadius: "50%",
-              background: "transparent",
-              boxShadow: "inset 0 0 40px rgba(40,100,255,0.08)",
-            }}
-          />
         </div>
-
-        {/* Horizon glow line */}
         <div
           style={{
             position: "absolute",

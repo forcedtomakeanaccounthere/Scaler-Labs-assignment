@@ -1,31 +1,28 @@
 "use client";
 
 import { useState } from "react";
-
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-const REDIRECT_URI = "http://localhost:5000/api/auth/google/callback";
+import { envConfig, googleRedirectUri } from "@/lib/config";
 
 export default function GoogleButton({ label = "Continue with Google" }: { label?: string }) {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleAuth = () => {
-    if (!GOOGLE_CLIENT_ID) {
+    if (!envConfig.googleClientId) {
       console.error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID");
       return;
     }
 
     setLoading(true);
-    const port = typeof window !== "undefined" ? window.location.port || "3000" : "3000";
+    const frontendOrigin =
+      typeof window !== "undefined" ? window.location.origin : envConfig.appUrl;
 
     const targetUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `client_id=${encodeURIComponent(envConfig.googleClientId)}` +
+      `&redirect_uri=${encodeURIComponent(googleRedirectUri)}` +
       `&response_type=code` +
       `&scope=${encodeURIComponent("openid profile email")}` +
-      `&state=${encodeURIComponent(port)}` +
+      `&state=${encodeURIComponent(frontendOrigin)}` +
       `&prompt=select_account`;
 
     window.location.href = targetUrl;

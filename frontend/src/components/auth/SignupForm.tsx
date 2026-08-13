@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import ReCAPTCHA from "react-google-recaptcha";
 import GoogleButton from "./GoogleButton";
-import { siteConfig } from "@/lib/config";
+import { siteConfig, envConfig } from "@/lib/config";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/providers/AuthProvider";
 
-const RECAPTCHA_SITE_KEY =
-  process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const RECAPTCHA_SITE_KEY = envConfig.recaptchaSiteKey;
+const API_BASE_URL = envConfig.apiUrl;
 
 export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const [firstName, setFirstName] = useState("");
@@ -24,6 +24,8 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
   const [agreed, setAgreed] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const { theme } = useTheme();
+  const { login } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,12 +36,10 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
       setErrorMsg("Please fill in all required fields.");
       return;
     }
-
     if (!captchaToken) {
       setErrorMsg("Please complete the CAPTCHA verification.");
       return;
     }
-
     if (!agreed) {
       setErrorMsg("Please agree to the Terms of Service & Privacy Policy.");
       return;
@@ -63,21 +63,14 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
 
       if (!res.ok) {
         setErrorMsg(data.error || "Registration failed.");
-        setLoading(false);
         recaptchaRef.current?.reset();
         setCaptchaToken(null);
         return;
       }
 
-      // Success
-      if (data.token) {
-        localStorage.setItem("catalogx_token", data.token);
-        localStorage.setItem("catalogx_user", JSON.stringify(data.user));
-      }
-      setSuccessMsg("Account created successfully! Redirecting...");
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      login(data.token, data.user);
+      setSuccessMsg("Account created! Redirecting…");
+      setTimeout(() => router.push("/redact"), 600);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to connect to authentication server.");
       recaptchaRef.current?.reset();

@@ -2,13 +2,23 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import app from "./app.js";
+import { appConfig } from "./config/app.js";
 import { connectMongo } from "./config/db.js";
-
-const port = process.env.PORT || 5000;
+import { connectRedis } from "./config/redis.js";
+import { startBullMQWorker } from "./workers/redactionWorker.js";
 
 async function start() {
-  app.listen(port, () => {
-    console.log(`Backend listening on port ${port}`);
+  const redisOk = await connectRedis();
+  if (redisOk) {
+    const worker = await startBullMQWorker();
+    console.log(`Redaction worker started: ${worker?.name || "docx-redaction"}`);
+  } else {
+    console.log("Redaction worker: in-process fallback mode (no Redis)");
+  }
+
+  app.listen(appConfig.port, () => {
+    console.log(`RedactIQ backend listening on port ${appConfig.port}`);
+    console.log(`API URL: ${appConfig.backendUrl}`);
   });
 
   connectMongo().catch((error) => {

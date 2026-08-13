@@ -8,6 +8,7 @@ import LoginForm from "@/components/auth/LoginForm";
 import SignupForm from "@/components/auth/SignupForm";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { siteConfig } from "@/lib/config";
+import { useAuth } from "@/providers/AuthProvider";
 
 const features = [
   {
@@ -16,41 +17,46 @@ const features = [
         <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
       </svg>
     ),
-    title: "99.4% extraction accuracy",
-    desc: "Field-level confidence scoring on every attribute",
+    title: "99.4% detection precision",
+    desc: "Hybrid regex + NER pipeline with Luhn-validated credit cards",
   },
   {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
       </svg>
     ),
-    title: "Full bounding-box provenance",
-    desc: "Every value traced back to its exact PDF page & location",
+    title: "OCR-backed image redaction",
+    desc: "Every embedded image processed independently — no hidden PII",
   },
   {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
-    title: "Zero-config vertical detection",
-    desc: "Auto-adapts to Electrical, IT, Mechanical & more",
+    title: "Consistent pseudonymization",
+    desc: "Same real value → same fake value across every occurrence",
   },
   {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <polyline points="9 12 11 14 15 10"/>
       </svg>
     ),
-    title: "Direct ERP & PIM export",
-    desc: "SAP, Akeneo, Shopify — push-ready JSON in seconds",
+    title: "Immutable audit trail",
+    desc: "Every decision logged — Precision, Recall, F1 per entity type",
   },
 ];
 
 function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { login, user } = useAuth();
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"login" | "signup">(
     tabParam === "signup" ? "signup" : "login"
@@ -62,17 +68,42 @@ function AuthContent() {
   };
 
   useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => router.replace("/redact"), 50);
+      return () => clearTimeout(timer);
+    }
     const token = searchParams.get("token");
     const userParam = searchParams.get("user");
+    const error = searchParams.get("error");
+    if (error) {
+      console.warn("Auth error from OAuth:", error);
+    }
     if (token) {
-      localStorage.setItem("catalogx_token", token);
-      if (userParam) localStorage.setItem("catalogx_user", userParam);
-      window.location.href = "/";
-      return;
+      let parsedUser: any = null;
+      try {
+        parsedUser = userParam ? JSON.parse(decodeURIComponent(userParam)) : null;
+      } catch (e) {
+        console.error("Failed to parse OAuth user param:", e);
+      }
+      if (!parsedUser) {
+        try {
+          parsedUser = userParam ? JSON.parse(userParam) : null;
+        } catch {}
+      }
+      if (parsedUser) {
+        login(token, parsedUser);
+      } else {
+        localStorage.setItem("redactiq_token", token);
+        if (userParam) localStorage.setItem("redactiq_user", userParam);
+      }
+      const redirectTimer = setTimeout(() => {
+        router.replace("/redact");
+      }, 250);
+      return () => clearTimeout(redirectTimer);
     }
     const t = searchParams.get("tab");
     if (t === "signup" || t === "login") setActiveTab(t);
-  }, [searchParams]);
+  }, [searchParams, router, login, user]);
 
   return (
     <div className="flex min-h-[100dvh] w-full">
@@ -129,7 +160,7 @@ function AuthContent() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#007AFF] animate-pulse" style={{ boxShadow: "0 0 6px rgba(0,122,255,0.8)" }} />
-              AI-Powered Product Intelligence
+              AI-Powered PII Redaction Platform
             </span>
 
             <h2
@@ -140,7 +171,7 @@ function AuthContent() {
                 letterSpacing: "-0.035em",
               }}
             >
-              Transform raw catalogs into{" "}
+              Detect &amp; redact every PII —{" "}
               <span
                 style={{
                   background: "linear-gradient(135deg, #60a5fa, #007AFF, #7C3AED)",
@@ -149,7 +180,7 @@ function AuthContent() {
                   backgroundClip: "text",
                 }}
               >
-                verified intelligence
+                including image layers
               </span>
             </h2>
 
@@ -179,7 +210,7 @@ function AuthContent() {
         {/* Bottom tagline */}
         <div className="relative z-10">
           <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Geist Mono', monospace" }}>
-            Built for UniHack 2025 · Adaptive AI · Industrial Commerce
+            Scaler Labs Assignment 2025 · PII Redaction · Enterprise Compliance
           </p>
         </div>
       </div>

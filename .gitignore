@@ -9,6 +9,8 @@ frontend/out/
 frontend/dist/
 backend/dist/
 
+uploads/
+
 # Env files
 .env
 .env.*

@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import ReCAPTCHA from "react-google-recaptcha";
 import GoogleButton from "./GoogleButton";
-import { siteConfig } from "@/lib/config";
+import { siteConfig, envConfig } from "@/lib/config";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/providers/AuthProvider";
 
-const RECAPTCHA_SITE_KEY =
-  process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const RECAPTCHA_SITE_KEY = envConfig.recaptchaSiteKey;
+const API_BASE_URL = envConfig.apiUrl;
 
 export default function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
   const [email, setEmail] = useState("");
@@ -21,6 +21,8 @@ export default function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () =
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const { theme } = useTheme();
+  const { login } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -43,32 +45,23 @@ export default function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () =
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          recaptchaToken: captchaToken,
-        }),
+        body: JSON.stringify({ email, password, recaptchaToken: captchaToken }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setErrorMsg(data.error || "Login failed. Please check your credentials.");
-        setLoading(false);
         recaptchaRef.current?.reset();
         setCaptchaToken(null);
         return;
       }
 
-      // Success
-      if (data.token) {
-        localStorage.setItem("catalogx_token", data.token);
-        localStorage.setItem("catalogx_user", JSON.stringify(data.user));
-      }
-      setSuccessMsg("Welcome back! Redirecting...");
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      // Commit to context + localStorage immediately
+      login(data.token, data.user);
+      setSuccessMsg("Welcome back! Redirecting…");
+      // Use router.push so Next.js client-side nav triggers re-renders
+      setTimeout(() => router.push("/redact"), 600);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to connect to authentication server.");
       recaptchaRef.current?.reset();

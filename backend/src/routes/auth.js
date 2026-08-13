@@ -3,12 +3,13 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import { verifyRecaptcha } from "../utils/recaptcha.js";
+import { appConfig } from "../config/app.js";
 
 const router = express.Router();
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:5000/api/auth/google/callback";
+const REDIRECT_URI = `${appConfig.backendUrl}/api/auth/google/callback`;
 
 const googleClient = new OAuth2Client(
   GOOGLE_CLIENT_ID,
@@ -16,7 +17,7 @@ const googleClient = new OAuth2Client(
   REDIRECT_URI
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || "catalogx_super_secret_jwt_key_2025_unihack";
+const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2025";
 
 // Helper to sign JWT token
 const generateToken = (userId) => {
@@ -27,10 +28,10 @@ const generateToken = (userId) => {
 export async function handleGoogleCallback(req, res) {
   try {
     const { code, state } = req.query;
-    const clientPort = state || "3000";
+    const frontendOrigin = state || appConfig.frontendUrl;
 
     if (!code) {
-      return res.redirect(`http://localhost:${clientPort}/auth?error=No+authorization+code+received`);
+      return res.redirect(`${frontendOrigin}/auth?error=No+authorization+code+received`);
     }
 
     let user;
@@ -73,6 +74,7 @@ export async function handleGoogleCallback(req, res) {
       const fallbackUser = {
         name: "Google Authorized User",
         email: "google_user@gmail.com",
+        googleId: "google_fallback_" + Date.now(),
         avatar: "https://lh3.googleusercontent.com/a/default-user",
       };
       user = await User.findOne({ email: fallbackUser.email });
@@ -83,10 +85,20 @@ export async function handleGoogleCallback(req, res) {
     }
 
     const token = generateToken(user._id);
-    return res.redirect(`http://localhost:${clientPort}/auth?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}`);
+    const userObj = typeof user.toJSON === "function" ? user.toJSON() : user;
+    const safeUser = {
+      _id: userObj._id,
+      name: userObj.name,
+      email: userObj.email,
+      avatar: userObj.avatar || "",
+      googleId: userObj.googleId || "",
+      role: userObj.role || "user",
+      createdAt: userObj.createdAt,
+    };
+    return res.redirect(`${frontendOrigin}/auth?token=${token}&user=${encodeURIComponent(JSON.stringify(safeUser))}`);
   } catch (error) {
     console.error("Google Callback Error:", error);
-    return res.redirect(`http://localhost:3000/auth?error=Authentication+failed`);
+    return res.redirect(`${appConfig.frontendUrl}/auth?error=Authentication+failed`);
   }
 }
 

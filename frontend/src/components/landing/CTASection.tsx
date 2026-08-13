@@ -14,7 +14,6 @@ export default function CTASection() {
               "radial-gradient(ellipse 80% 100% at 50% 50%, var(--accent-subtle), transparent 70%), var(--bg-surface)",
           }}
         >
-          {/* Subtle Grid Pattern Overlay */}
           <div
             className="absolute inset-0 pointer-events-none opacity-20"
             style={{
@@ -26,23 +25,23 @@ export default function CTASection() {
           />
 
           <div className="relative z-10 max-w-2xl mx-auto">
-            <span className="badge mb-6">BUILT FOR UNIHACK 2025</span>
+            <span className="badge mb-6">SCALER LABS ASSIGNMENT</span>
 
             <h2
               className="font-bold tracking-tight text-[32px] sm:text-[48px] leading-tight mb-6"
               style={{ color: "var(--text-primary)" }}
             >
-              Intelligence that earns your trust — field by field
+              Every PII redaction is traceable — field by field, image by image
             </h2>
 
             <p className="text-[16px] leading-relaxed mb-10" style={{ color: "var(--text-secondary)" }}>
-              Stop guessing which catalog specs are accurate. {siteConfig.name} provides source-backed,
-              confidence-scored product records ready for your commerce stack.
+              Stop worrying about missed PII or exposed ID card images. {siteConfig.name} processes
+              every embedded image independently, so nothing hides behind layers.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <Link href="/auth?tab=signup" className="btn-primary text-[15px] !py-3.5 !px-8">
-                Start building with {siteConfig.name}
+              <Link href="/redact" className="btn-primary text-[15px] !py-3.5 !px-8">
+                Start redacting with {siteConfig.name}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
                     d="M3.333 8h9.334M8.667 3.333L13.333 8l-4.666 4.667"
@@ -53,7 +52,6 @@ export default function CTASection() {
                   />
                 </svg>
               </Link>
-
               <a href="#features" className="btn-ghost text-[15px] !py-3.5 !px-7">
                 Explore Features
               </a>
