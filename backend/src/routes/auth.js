@@ -33,7 +33,10 @@ function getJwtSecret() {
 }
 
 function getRedirectUri() {
-  return `${appConfig.backendUrl}/api/auth/google/callback`;
+  // Render permits a trailing slash in BACKEND_URL / RENDER_EXTERNAL_URL.
+  // Normalize it because Google requires the token-exchange redirect URI to
+  // exactly match the URI registered in the OAuth client.
+  return `${appConfig.backendUrl.replace(/\/+$/, "")}/api/auth/google/callback`;
 }
 
 let _cachedClient = null;

@@ -191,7 +191,15 @@ export async function startBullMQWorker() {
   bullWorker = new Worker(
     "docx-redaction",
     async (bullJob) => processJobInline(bullJob.data),
-    { connection: redis, concurrency: 3 }
+    {
+      connection: redis,
+      // DOCX extraction, XML replacement, and ZIP output are CPU-heavy and
+      // synchronous in places. Keep one job per Render process so the event
+      // loop can renew its lock, and allow large documents enough time to run.
+      concurrency: 1,
+      lockDuration: 5 * 60 * 1000,
+      lockRenewTime: 30 * 1000,
+    }
   );
 
   bullWorker.on("completed", (job) => {
