@@ -17,7 +17,7 @@ const steps = [
       <div className="space-y-3">
         {[
           { name: "KYC_Form_Rashi_Patil.docx", size: "1.4 MB · 8 Pages", status: "PROCESSING", color: "#007AFF" },
-          { name: "Employee_Onboarding_2025.docx", size: "3.2 MB · 22 Pages", status: "QUEUED", color: "#FF9F0A" },
+          { name: "Employee_Onboarding_2026.docx", size: "3.2 MB · 22 Pages", status: "QUEUED", color: "#FF9F0A" },
           { name: "Loan_Agreement_Draft.docx", size: "0.9 MB · 5 Pages", status: "DONE", color: "#30D158" },
         ].map((f) => (
           <div

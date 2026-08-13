@@ -110,7 +110,7 @@ router.post("/", upload.single("file"), async (req, res) => {
   if (authHeader) {
     try {
       const jwt = await import("jsonwebtoken");
-      const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2025";
+      const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2026";
       const decoded = jwt.default.verify(authHeader.replace("Bearer ", ""), JWT_SECRET);
       userId = decoded.id;
     } catch { /* ignore */ }
@@ -123,7 +123,7 @@ router.post("/", upload.single("file"), async (req, res) => {
 
     let policy = {};
     try { policy = JSON.parse(req.body.policy || "{}"); } catch {}
-    const defaultAction = req.body.defaultAction || "MASK";
+    const defaultAction = req.body.defaultAction || "PSEUDONYMIZE";
 
     const job = buildJob(userId || "guest", req.file, policy, defaultAction, isGuest);
     if (!isGuest) job.userId = userId;
@@ -151,7 +151,7 @@ router.post("/batch", requireAuth, uploadBatch.array("files", 5), async (req, re
 
     let policy = {};
     try { policy = JSON.parse(req.body.policy || "{}"); } catch {}
-    const defaultAction = req.body.defaultAction || "MASK";
+    const defaultAction = req.body.defaultAction || "PSEUDONYMIZE";
 
     const jobs = [];
     for (const file of files) {
@@ -181,7 +181,7 @@ router.get("/:id/progress", async (req, res) => {
   if (token) {
     try {
       const jwt = await import("jsonwebtoken");
-      const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2025";
+      const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2026";
       const decoded = jwt.default.verify(token, JWT_SECRET);
       userId = decoded.id;
     } catch { /* guest */ }

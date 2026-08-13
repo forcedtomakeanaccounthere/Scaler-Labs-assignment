@@ -19,10 +19,11 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import AdmZip from "adm-zip";
 import axios from "axios";
+import { appConfig } from "../config/app.js";
 
 const execFileAsync = promisify(execFile);
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || "http://localhost:8000";
+const PYTHON_SERVICE_URL = appConfig.pythonServiceUrl;
 
 /**
  * Extract all paragraphs (with run-level text spans) from a .docx.
@@ -179,16 +180,22 @@ function applyRedactionsViaZip(filePath, entities, redactedImages, outputPath) {
 }
 
 function getReplacementText(entity) {
+  let replacement;
   switch (entity.action) {
     case "MASK":
-      return "█".repeat(Math.min(entity.text.length, 12));
+      replacement = "█".repeat(Math.min(entity.text.length, 12));
+      break;
     case "PSEUDONYMIZE":
-      return entity.fakeValue || "[REDACTED]";
+      replacement = entity.fakeValue || "[REDACTED]";
+      break;
     case "GENERALIZE":
-      return entity.generalizedValue || "[REDACTED]";
+      replacement = entity.generalizedValue || "[REDACTED]";
+      break;
     default:
-      return "[REDACTED]";
+      replacement = "[REDACTED]";
   }
+  console.log(`[docxProcessor] Replacing "${entity.text?.slice(0, 20)}" (action: ${entity.action}) with "${replacement?.slice(0, 20)}"`);
+  return replacement;
 }
 
 function escapeRegex(text) {

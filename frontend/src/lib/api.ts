@@ -130,7 +130,7 @@ export interface ProgressEvent {
 export async function uploadDocx(
   file: File,
   policy: Record<string, string> = {},
-  defaultAction = "MASK",
+  defaultAction = "PSEUDONYMIZE",
   isGuest = false
 ): Promise<{ job: Job }> {
   const form = new FormData();
@@ -171,7 +171,7 @@ export async function uploadDocx(
 export async function uploadBatch(
   files: File[],
   policy: Record<string, string> = {},
-  defaultAction = "MASK"
+  defaultAction = "PSEUDONYMIZE"
 ): Promise<{ jobs: Job[] }> {
   const form = new FormData();
   for (const f of files) form.append("files", f);

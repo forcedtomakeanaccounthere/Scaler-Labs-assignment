@@ -29,7 +29,7 @@ function cloneJob(data, isNew = false) {
     inputFilePath: data.inputFilePath,
     outputFilePath: data.outputFilePath || null,
     policy: data.policy instanceof Map ? data.policy : new Map(Object.entries(data.policy || {})),
-    defaultAction: data.defaultAction || "MASK",
+    defaultAction: data.defaultAction || "PSEUDONYMIZE",
     entities: Array.isArray(data.entities)
       ? data.entities.map((e, i) => cloneEntity(e, `${id}_ent_${i}`))
       : [],
@@ -147,7 +147,7 @@ const JobSchema = new mongoose.Schema(
     defaultAction: {
       type: String,
       enum: ["MASK", "PSEUDONYMIZE", "GENERALIZE"],
-      default: "MASK",
+      default: "PSEUDONYMIZE",
     },
     entities: [EntitySchema],
     evaluation: {

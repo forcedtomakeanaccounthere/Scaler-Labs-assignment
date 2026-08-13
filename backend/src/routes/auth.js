@@ -17,7 +17,7 @@ const googleClient = new OAuth2Client(
   REDIRECT_URI
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2025";
+const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2026";
 
 // Helper to sign JWT token
 const generateToken = (userId) => {

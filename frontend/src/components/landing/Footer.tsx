@@ -56,7 +56,7 @@ export default function Footer() {
           className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px]"
           style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-tertiary)" }}
         >
-          <div>© 2025 {siteConfig.name} · PII Redaction Platform · Scaler Labs</div>
+          <div>© 2026 {siteConfig.name} · PII Redaction Platform · Scaler Labs</div>
           <div className="flex gap-6">
             <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Terms of Service</a>

@@ -163,12 +163,43 @@ function EntitiesTab({ entities }: { entities: NonNullable<Job["entities"]> }) {
 }
 
 function MetricsTab({ evaluation }: { evaluation: Job["evaluation"] }) {
+  const [showInfo, setShowInfo] = useState(false);
+  
   if (!evaluation) {
     return <div className="py-10 text-center text-[13px]" style={{ color: "var(--text-tertiary)" }}>No evaluation data</div>;
   }
 
   return (
     <div className="space-y-4">
+      {/* Info banner */}
+      <div
+        className="rounded-xl p-3 border flex items-start gap-3 cursor-pointer"
+        style={{ background: "rgba(0,122,255,0.05)", borderColor: "rgba(0,122,255,0.2)" }}
+        onClick={() => setShowInfo(!showInfo)}
+      >
+        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(0,122,255,0.15)", color: "#007AFF" }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div className="flex-1">
+          <div className="text-[11px] font-semibold" style={{ color: "#007AFF" }}>About these metrics</div>
+          {showInfo && (
+            <div className="text-[11px] mt-1.5 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              These metrics reflect <strong>detection confidence</strong>, not ground-truth comparison. 
+              All detected entities are counted as True Positives (TP). False Positives and False Negatives 
+              require annotated test sets for validation. In production, compare against golden datasets 
+              to compute real precision/recall/F1 scores.
+            </div>
+          )}
+          {!showInfo && (
+            <div className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+              Click to learn more
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Overall */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[

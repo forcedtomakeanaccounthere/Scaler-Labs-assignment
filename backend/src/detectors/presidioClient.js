@@ -18,8 +18,9 @@
  */
 
 import axios from "axios";
+import { appConfig } from "../config/app.js";
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || "http://localhost:8000";
+const PYTHON_SERVICE_URL = appConfig.pythonServiceUrl;
 let serviceAvailable = null; // null = untested, true/false after first attempt
 
 /**

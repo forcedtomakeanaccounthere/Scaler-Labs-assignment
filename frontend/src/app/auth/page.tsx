@@ -210,7 +210,7 @@ function AuthContent() {
         {/* Bottom tagline */}
         <div className="relative z-10">
           <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Geist Mono', monospace" }}>
-            Scaler Labs Assignment 2025 · PII Redaction · Enterprise Compliance
+            Scaler Labs Assignment 2026 · PII Redaction · Enterprise Compliance
           </p>
         </div>
       </div>
@@ -288,7 +288,7 @@ function AuthContent() {
         {/* Footer */}
         <div className="px-8 py-4 text-center">
           <p className="text-[11px] mono" style={{ color: "var(--text-tertiary)" }}>
-            Protected by reCAPTCHA · {siteConfig.name} © 2025
+            Protected by reCAPTCHA · {siteConfig.name} © 2026
           </p>
         </div>
       </div>

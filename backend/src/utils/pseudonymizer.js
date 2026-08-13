@@ -13,28 +13,49 @@
 import crypto from "crypto";
 import PseudoMap from "../models/PseudoMap.js";
 
-// Fake data pools — extend as needed
+// Fake data pools — extended with more realistic variety
 const FAKE_NAMES = [
   "Arjun Sharma", "Priya Nair", "Rohan Mehta", "Deepika Singh",
   "Vikram Patel", "Anjali Gupta", "Siddharth Kumar", "Kavya Reddy",
   "Rahul Verma", "Pooja Joshi", "Nikhil Agarwal", "Sunita Rao",
   "Manish Tiwari", "Swati Mishra", "Aakash Khanna", "Ritika Desai",
-  "John Doe", "Jane Smith", "Alex Johnson", "Sam Williams",
+  "Amit Malhotra", "Neha Kapoor", "Rajesh Pillai", "Shruti Iyer",
+  "Karthik Menon", "Divya Krishnan", "Sandeep Bose", "Meera Kulkarni",
+  "Aditya Goswami", "Ritu Sinha", "Harish Narayanan", "Lakshmi Venkat",
+  "Tarun Chopra", "Ananya Banerjee", "Vivek Saxena", "Sneha Jain",
 ];
 
-const FAKE_DOMAINS = ["redacted.io", "example.org", "masked.net", "noreply.com"];
+const FAKE_DOMAINS = [
+  "redacted.io", "example.org", "masked.net", "noreply.com",
+  "private.email", "anonymous.io", "secure.dev", "temp.mail"
+];
 
-const FAKE_PHONE_PREFIXES = ["+91 70000", "+91 80000", "+91 90000", "+1 555 0"];
+const FAKE_PHONE_PREFIXES = [
+  "+91 70000", "+91 80000", "+91 90000", "+91 95000",
+  "+91 98000", "+91 85000", "+1 555 0", "+44 20 7946"
+];
 
-const FAKE_AADHAAR_PREFIX = ["9999", "8888", "7777"];
+const FAKE_AADHAAR_PREFIX = ["9999", "8888", "7777", "6666", "5555"];
 
-const FAKE_PAN_CHARS = "XYZQWMNKJ";
+const FAKE_PAN_CHARS = "XYZQWMNKJABCDPRTL";
 
 const FAKE_ADDRESSES = [
-  "123 Redacted Street, Anonymized City",
-  "456 Privacy Lane, Data Town",
-  "789 Secure Road, Protected District",
+  "123 Redacted Street, Anonymized City, 560001",
+  "456 Privacy Lane, Data Town, 400001",
+  "789 Secure Road, Protected District, 110001",
+  "321 Confidential Avenue, Safe Harbor, 600001",
+  "654 Anonymous Boulevard, Hidden Valley, 500001",
+  "987 Masked Plaza, Secret Springs, 700001",
 ];
+
+const FAKE_ORG_NAMES = [
+  "Redacted Corp Ltd", "Anonymous Industries", "Confidential Enterprises",
+  "Private Solutions Inc", "Secure Systems Pvt Ltd", "Protected Tech Ltd"
+];
+
+const FAKE_PASSPORT_PREFIX = ["X", "Y", "Z", "A", "B"];
+
+
 
 /**
  * Get or create a pseudonymized value for a given entity.
@@ -129,7 +150,13 @@ function generateFakeValue(type, hash) {
       return pick(FAKE_ADDRESSES);
 
     case "ORG":
-      return `Redacted Corp Ltd`;
+      return pick(FAKE_ORG_NAMES);
+    
+    case "PASSPORT": {
+      const prefix = pick(FAKE_PASSPORT_PREFIX);
+      const num = String((seed % 9999999) + 1000000).slice(-7);
+      return `${prefix}${num}`;
+    }
 
     case "IP_V4": {
       const o1 = 192;

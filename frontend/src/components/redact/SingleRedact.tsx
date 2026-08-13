@@ -42,7 +42,7 @@ export default function SingleRedact({ user, guestUsesLeft, onGuestUse }: Props)
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [policy, setPolicy] = useState<Record<string, string>>({});
-  const [defaultAction, setDefaultAction] = useState<"MASK" | "PSEUDONYMIZE" | "GENERALIZE">("MASK");
+  const [defaultAction, setDefaultAction] = useState<"MASK" | "PSEUDONYMIZE" | "GENERALIZE">("PSEUDONYMIZE");
   const [showPolicy, setShowPolicy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const unsubRef = useRef<(() => void) | null>(null);
@@ -493,20 +493,59 @@ function InfoPanel({ isGuest, guestUsesLeft }: { isGuest: boolean; guestUsesLeft
         <div className="text-[11px] font-bold uppercase tracking-widest mono mb-3" style={{ color: "var(--text-tertiary)" }}>
           What gets detected
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
           {[
-            { type: "PERSON",       desc: "Full names, prefixed names",   color: "#FF9F0A", icon: "👤" },
-            { type: "AADHAAR",      desc: "12-digit Aadhaar numbers",     color: "#FF453A", icon: "🪪" },
-            { type: "PAN",          desc: "PAN card numbers",             color: "#FF453A", icon: "🗂" },
-            { type: "EMAIL",        desc: "Email addresses",              color: "#007AFF", icon: "✉️" },
-            { type: "PHONE",        desc: "Indian & intl. phone numbers", color: "#30D158", icon: "📞" },
-            { type: "CREDIT_CARD",  desc: "Luhn-validated card numbers",  color: "#A78BFA", icon: "💳" },
-            { type: "ADDRESS",      desc: "Physical addresses",           color: "#38BDF8", icon: "📍" },
-            { type: "DOB",          desc: "Dates of birth",               color: "#FF9F0A", icon: "📅" },
-            { type: "IMAGE_PII",    desc: "Faces, QR codes, ID scans",   color: "#FF453A", icon: "🖼" },
+            { type: "PERSON",       desc: "Full names, prefixed names",   color: "#FF9F0A", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+            )},
+            { type: "AADHAAR",      desc: "12-digit Aadhaar numbers",     color: "#FF453A", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+            )},
+            { type: "PAN",          desc: "PAN card numbers",             color: "#FF453A", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+            )},
+            { type: "EMAIL",        desc: "Email addresses",              color: "#007AFF", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            )},
+            { type: "PHONE",        desc: "Indian & intl. phone numbers", color: "#30D158", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            )},
+            { type: "CREDIT_CARD",  desc: "Luhn-validated card numbers",  color: "#A78BFA", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+            )},
+            { type: "ADDRESS",      desc: "Physical addresses",           color: "#38BDF8", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+            )},
+            { type: "DOB",          desc: "Dates of birth",               color: "#FF9F0A", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            )},
+            { type: "IMAGE_PII",    desc: "Faces, QR codes, ID scans",   color: "#FF453A", icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            )},
           ].map((item) => (
             <div key={item.type} className="flex items-center gap-2.5 py-1">
-              <span className="text-[14px] flex-shrink-0">{item.icon}</span>
+              <span className="flex-shrink-0" style={{ color: item.color }}>{item.icon}</span>
               <div className="flex-1 min-w-0">
                 <span className="text-[11px] font-bold mono" style={{ color: item.color }}>{item.type}</span>
                 <span className="text-[11px] ml-2" style={{ color: "var(--text-tertiary)" }}>{item.desc}</span>

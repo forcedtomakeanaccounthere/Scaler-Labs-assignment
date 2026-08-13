@@ -11,6 +11,7 @@ import Job from "../models/Job.js";
 import { detectAllPII } from "../detectors/piiDetector.js";
 import { getPseudonym } from "../utils/pseudonymizer.js";
 import { extractDocxContent, extractImages, applyRedactions } from "../utils/docxProcessor.js";
+import { resolveEntityAction } from "../utils/policy.js";
 
 const UPLOAD_DIR = appConfig.uploadDir;
 const PYTHON_SERVICE_URL = appConfig.pythonServiceUrl;
@@ -90,10 +91,15 @@ export async function processJobInline({ jobId, reviewCompleted = false }) {
       }
     }
     const allEntities = [...textEntities, ...imageEntities];
+    // Convert MongoDB Map to plain object if needed
+    const policyObj = job.policy instanceof Map 
+      ? Object.fromEntries(job.policy) 
+      : (job.policy || {});
+    
     const policiedEntities = allEntities.map((entity) => {
       if (entity.reviewerAction === "REJECTED") return { ...entity, action: "KEEP" };
-      const policyAction = job.policy?.get?.(entity.type);
-      const action = policyAction || job.defaultAction || "MASK";
+      const policyAction = policyObj[entity.type];
+      const action = policyAction || job.defaultAction || "PSEUDONYMIZE";
       return { ...entity, action };
     });
     const needsReview = !reviewCompleted && policiedEntities.some(
@@ -123,6 +129,18 @@ export async function processJobInline({ jobId, reviewCompleted = false }) {
         return entity;
       })
     );
+    
+    // Debug log to trace redaction actions
+    const actionCounts = finalEntities.reduce((acc, e) => {
+      acc[e.action] = (acc[e.action] || 0) + 1;
+      return acc;
+    }, {});
+    console.log(`[InlineWorker] Job ${jobId} action breakdown:`, actionCounts);
+    console.log(`[InlineWorker] Job ${jobId} sample entities:`, finalEntities.slice(0, 3).map(e => ({
+      type: e.type, text: e.text?.slice(0, 20), action: e.action, 
+      fakeValue: e.fakeValue?.slice(0, 20), generalizedValue: e.generalizedValue
+    })));
+    
     step(jobId, "redact", "Applying redactions to DOCX XML");
     const outputFilename = `${uuidv4()}_redacted.docx`;
     const outputPath = path.join(UPLOAD_DIR, outputFilename);
@@ -211,14 +229,65 @@ async function processImage(img) {
 }
 
 async function createBlackRectangle(buffer) {
-  const blackPng = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "base64"
-  );
-  return blackPng;
+  // Create a placeholder image with "SENSITIVE ID DOCUMENT REDACTED" text
+  // This is a 600x400 PNG with black border and white background with text
+  const width = 600;
+  const height = 400;
+  
+  // Try to use sharp to create a better placeholder
+  try {
+    const sharp = (await import('sharp')).default;
+    
+    // Create SVG with text
+    const svg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${width}" height="${height}" fill="white" stroke="black" stroke-width="4"/>
+        <text 
+          x="50%" 
+          y="45%" 
+          dominant-baseline="middle" 
+          text-anchor="middle" 
+          font-family="Arial, sans-serif" 
+          font-size="28" 
+          font-weight="bold"
+          fill="black">
+          SENSITIVE ID DOCUMENT
+        </text>
+        <text 
+          x="50%" 
+          y="55%" 
+          dominant-baseline="middle" 
+          text-anchor="middle" 
+          font-family="Arial, sans-serif" 
+          font-size="28" 
+          font-weight="bold"
+          fill="black">
+          REDACTED
+        </text>
+      </svg>
+    `;
+    
+    return await sharp(Buffer.from(svg))
+      .png()
+      .toBuffer();
+  } catch (err) {
+    console.warn('[createBlackRectangle] Sharp not available, using fallback');
+    // Fallback: Return a simple black 1x1 pixel (better than nothing)
+    const blackPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    return blackPng;
+  }
 }
 
 function computeEvaluation(entities, totalImages, imagesRedacted) {
+  // NOTE: These metrics reflect detection confidence, not comparison to ground truth.
+  // True Positives (TP) = entities redacted (assumed correct)
+  // False Positives (FP) = 0 (no ground truth to compare against)
+  // False Negatives (FN) = 0 (no ground truth to compare against)
+  // In production, you would compare against annotated test sets.
+  
   const byType = {};
   for (const e of entities) {
     if (!byType[e.type]) byType[e.type] = { tp: 0, fp: 0, fn: 0 };
@@ -264,9 +333,11 @@ function computeEvaluation(entities, totalImages, imagesRedacted) {
 function generalize(entity) {
   switch (entity.type) {
     case "DOB": {
+      // Extract year and generalize to decade
       const match = entity.text.match(/\b(\d{4})\b/);
       if (match) {
-        const decade = Math.floor(parseInt(match[1], 10) / 10) * 10;
+        const year = parseInt(match[1], 10);
+        const decade = Math.floor(year / 10) * 10;
         return `${decade}s`;
       }
       return "[DATE REDACTED]";
@@ -274,6 +345,7 @@ function generalize(entity) {
     case "PHONE_IN":
     case "PHONE_INTL":
     case "PHONE":
+      // Show only last 4 digits
       return entity.text.replace(/\d(?=\d{4})/g, "X");
     case "PERSON":
       return "[Individual]";
@@ -281,6 +353,19 @@ function generalize(entity) {
       return "[EMAIL REDACTED]";
     case "ADDRESS":
       return "[ADDRESS REDACTED]";
+    case "AADHAAR":
+      return "[AADHAAR REDACTED]";
+    case "PAN":
+      return "[PAN REDACTED]";
+    case "CREDIT_CARD":
+      // Show last 4 digits only
+      return entity.text.replace(/\d(?=\d{4})/g, "X");
+    case "ORG":
+      return "[ORGANIZATION]";
+    case "PASSPORT":
+      return "[PASSPORT REDACTED]";
+    case "IP_V4":
+      return "[IP ADDRESS]";
     default:
       return "[REDACTED]";
   }

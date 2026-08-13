@@ -27,7 +27,7 @@ export default function BatchRedact({ user }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const [policy, setPolicy] = useState<Record<string, string>>({});
-  const [defaultAction, setDefaultAction] = useState<"MASK" | "PSEUDONYMIZE" | "GENERALIZE">("MASK");
+  const [defaultAction, setDefaultAction] = useState<"MASK" | "PSEUDONYMIZE" | "GENERALIZE">("PSEUDONYMIZE");
   const [showPolicy, setShowPolicy] = useState(false);
   const [expandedJobIdx, setExpandedJobIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
