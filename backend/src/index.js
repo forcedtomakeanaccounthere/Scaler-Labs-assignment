@@ -1,13 +1,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import app from "./app.js";
-import { appConfig } from "./config/app.js";
-import { connectMongo } from "./config/db.js";
-import { connectRedis } from "./config/redis.js";
-import { startBullMQWorker } from "./workers/redactionWorker.js";
+async function main() {
+  const { default: app } = await import("./app.js");
+  const { appConfig } = await import("./config/app.js");
+  const { connectMongo } = await import("./config/db.js");
+  const { connectRedis } = await import("./config/redis.js");
+  const { startBullMQWorker } = await import("./workers/redactionWorker.js");
 
-async function start() {
   const redisOk = await connectRedis();
   if (redisOk) {
     const worker = await startBullMQWorker();
@@ -26,7 +26,7 @@ async function start() {
   });
 }
 
-start().catch((error) => {
+main().catch((error) => {
   console.error("Failed to start backend:", error);
   process.exit(1);
 });

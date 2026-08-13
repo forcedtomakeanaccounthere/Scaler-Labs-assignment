@@ -22,6 +22,7 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
   const [successMsg, setSuccessMsg] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const { theme } = useTheme();
   const { login } = useAuth();
@@ -104,7 +105,28 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
       )}
 
       {/* Google OAuth */}
-      <GoogleButton label="Sign up with Google" />
+      <div className="relative">
+        <GoogleButton 
+          label="Sign up with Google" 
+          disabled={!captchaToken} 
+          onDisabledClick={() => {
+            setShowTooltip(true);
+            setTimeout(() => setShowTooltip(false), 2000);
+          }}
+        />
+        {showTooltip && !captchaToken && (
+          <div 
+            className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg text-[12px] font-medium whitespace-nowrap z-50 animate-fadeIn"
+            style={{
+              background: "rgba(255,69,58,0.95)",
+              color: "white",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            }}
+          >
+            Please complete reCAPTCHA first
+          </div>
+        )}
+      </div>
 
       {/* Divider */}
       <div className="flex items-center gap-3">
@@ -238,7 +260,17 @@ export default function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () =>
         </div>
 
         {/* Submit */}
-        <button type="submit" disabled={loading} className="btn-primary w-full justify-center !py-3.5">
+        <button 
+          type="submit" 
+          disabled={loading || !captchaToken} 
+          className="btn-primary w-full justify-center !py-3.5 disabled:opacity-50 disabled:cursor-not-allowed relative group"
+          onMouseEnter={(e) => {
+            if (!captchaToken) {
+              setShowTooltip(true);
+            }
+          }}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
           {loading ? "Creating account..." : "Create account"}
         </button>
       </form>

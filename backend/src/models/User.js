@@ -254,6 +254,61 @@ const Wrapper = {
       return options.new ? result : cloneUser(existing);
     });
   },
+
+  deleteOne(query) {
+    const hasMongo = isMongoConnected();
+    if (hasMongo) {
+      try {
+        return MongooseUser.deleteOne(query);
+      } catch {}
+    }
+    return new UserSingleQuery(async () => {
+      let existingKey = null;
+      if (query?.email != null) {
+        const id = emailIndex.get(String(query.email).toLowerCase());
+        if (id) {
+          existingKey = id;
+        }
+      }
+      if (!existingKey) {
+        for (const [k, d] of userMemoryStore) {
+          if (matchQuery(d, query)) { existingKey = k; break; }
+        }
+      }
+      let deletedCount = 0;
+      if (existingKey) {
+        const stored = userMemoryStore.get(existingKey);
+        if (stored?.email) {
+          const lower = stored.email.toLowerCase();
+          if (emailIndex.get(lower) === existingKey) emailIndex.delete(lower);
+        }
+        if (userMemoryStore.delete(existingKey)) deletedCount = 1;
+      }
+      return { deletedCount, acknowledged: true };
+    });
+  },
+
+  deleteMany(query) {
+    const hasMongo = isMongoConnected();
+    if (hasMongo) {
+      try {
+        return MongooseUser.deleteMany(query);
+      } catch {}
+    }
+    return new UserSingleQuery(async () => {
+      let deletedCount = 0;
+      for (const [k, d] of [...userMemoryStore.entries()]) {
+        if (!query || matchQuery(d, query)) {
+          if (d?.email) {
+            const lower = d.email.toLowerCase();
+            if (emailIndex.get(lower) === k) emailIndex.delete(lower);
+          }
+          if (userMemoryStore.delete(k)) deletedCount++;
+        }
+      }
+      return { deletedCount, acknowledged: true };
+    });
+  },
 };
 
 function UserConstructor(data) { return Wrapper.new(data); }

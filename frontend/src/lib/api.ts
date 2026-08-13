@@ -125,6 +125,25 @@ export interface ProgressEvent {
   detail?: string;
 }
 
+// ── Auth / Profile API ──────────────────────────────────────────────────────
+
+export interface ProfileResponse {
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    googleId?: string;
+    role?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
+}
+
+export async function fetchProfile(): Promise<ProfileResponse> {
+  return apiFetch<ProfileResponse>("/api/auth/me");
+}
+
 // ── Jobs API ──────────────────────────────────────────────────────────────
 
 export async function uploadDocx(

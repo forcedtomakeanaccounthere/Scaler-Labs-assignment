@@ -123,9 +123,14 @@ export async function processJobInline({ jobId, reviewCompleted = false }) {
       policiedEntities.map(async (entity) => {
         if (entity.action === "PSEUDONYMIZE") {
           const fakeValue = await getPseudonym(jobId, entity.type, entity.text);
+          console.log(`[Worker] PSEUDONYMIZE: "${entity.text.slice(0, 20)}" → "${fakeValue.slice(0, 20)}"`);
           return { ...entity, fakeValue };
         }
-        if (entity.action === "GENERALIZE") return { ...entity, generalizedValue: generalize(entity) };
+        if (entity.action === "GENERALIZE") {
+          const generalizedValue = generalize(entity);
+          console.log(`[Worker] GENERALIZE: "${entity.text.slice(0, 20)}" → "${generalizedValue}"`);
+          return { ...entity, generalizedValue };
+        }
         return entity;
       })
     );
@@ -229,50 +234,54 @@ async function processImage(img) {
 }
 
 async function createBlackRectangle(buffer) {
-  // Create a placeholder image with "SENSITIVE ID DOCUMENT REDACTED" text
-  // This is a 600x400 PNG with black border and white background with text
-  const width = 600;
-  const height = 400;
+  // Create a placeholder image with "SENSITIVE IDENTITY DATA REDACTED" text
+  const width = 800;
+  const height = 600;
   
-  // Try to use sharp to create a better placeholder
   try {
     const sharp = (await import('sharp')).default;
     
-    // Create SVG with text
+    // Create SVG with black background and white text
     const svg = `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="${width}" height="${height}" fill="white" stroke="black" stroke-width="4"/>
+        <rect width="${width}" height="${height}" fill="black"/>
+        <rect x="20" y="20" width="${width - 40}" height="${height - 40}" fill="none" stroke="white" stroke-width="8"/>
         <text 
           x="50%" 
-          y="45%" 
+          y="42%" 
           dominant-baseline="middle" 
           text-anchor="middle" 
           font-family="Arial, sans-serif" 
-          font-size="28" 
+          font-size="42" 
           font-weight="bold"
-          fill="black">
-          SENSITIVE ID DOCUMENT
+          fill="white"
+          letter-spacing="2">
+          SENSITIVE IDENTITY DATA
         </text>
         <text 
           x="50%" 
-          y="55%" 
+          y="58%" 
           dominant-baseline="middle" 
           text-anchor="middle" 
           font-family="Arial, sans-serif" 
-          font-size="28" 
+          font-size="42" 
           font-weight="bold"
-          fill="black">
+          fill="white"
+          letter-spacing="2">
           REDACTED
         </text>
       </svg>
     `;
     
-    return await sharp(Buffer.from(svg))
+    const pngBuffer = await sharp(Buffer.from(svg))
       .png()
       .toBuffer();
+    
+    console.log(`[createBlackRectangle] Created placeholder image: ${pngBuffer.length} bytes`);
+    return pngBuffer;
   } catch (err) {
-    console.warn('[createBlackRectangle] Sharp not available, using fallback');
-    // Fallback: Return a simple black 1x1 pixel (better than nothing)
+    console.warn('[createBlackRectangle] Sharp not available, using minimal fallback:', err.message);
+    // Fallback: Return a simple 1x1 black pixel
     const blackPng = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
       "base64"

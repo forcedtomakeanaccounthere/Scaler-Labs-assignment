@@ -18,7 +18,19 @@ export default function Navbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const { user, logout } = useAuth();
+  const { user, logout, loading, refreshUser } = useAuth();
+
+  useEffect(() => {
+    if (loading) return;
+    refreshUser().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      console.log("✓ Navbar: User loaded:", { name: user.name, email: user.email, avatar: user.avatar?.slice(0, 60) });
+    }
+  }, [user]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);

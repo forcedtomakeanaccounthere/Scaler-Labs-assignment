@@ -7,22 +7,207 @@ import { appConfig } from "../config/app.js";
 
 const router = express.Router();
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = `${appConfig.backendUrl}/api/auth/google/callback`;
+function getGoogleClientId() {
+  return (
+    process.env.GOOGLE_CLIENT_ID?.trim() ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
+    process.env.VITE_GOOGLE_CLIENT_ID?.trim() ||
+    ""
+  );
+}
 
-const googleClient = new OAuth2Client(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI
-);
+function getGoogleClientSecret() {
+  return (
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET?.trim() ||
+    ""
+  );
+}
 
-const JWT_SECRET = process.env.JWT_SECRET || "redactiq_super_secret_jwt_key_2026";
+function getJwtSecret() {
+  return (
+    appConfig.jwtSecret ||
+    process.env.JWT_SECRET?.trim() ||
+    "redactiq_super_secret_jwt_key_2026"
+  );
+}
+
+function getRedirectUri() {
+  return `${appConfig.backendUrl}/api/auth/google/callback`;
+}
+
+let _cachedClient = null;
+let _cachedFor = { id: "", secret: "", uri: "" };
+
+function getGoogleClient() {
+  const id = getGoogleClientId();
+  const secret = getGoogleClientSecret();
+  const uri = getRedirectUri();
+
+  const same =
+    _cachedClient &&
+    _cachedFor.id === id &&
+    _cachedFor.secret === secret &&
+    _cachedFor.uri === uri;
+  if (same) return _cachedClient;
+
+  _cachedClient = new OAuth2Client(id, secret, uri);
+  _cachedFor = { id, secret, uri };
+
+  console.log("[OAuth Config] (Re)built Google OAuth2 client:");
+  console.log("  Client ID:", id ? `${id.slice(0, 20)}...` : "NOT SET");
+  console.log("  Client Secret:", secret ? "SET" : "NOT SET");
+  console.log("  Redirect URI:", uri);
+
+  return _cachedClient;
+}
+
+const JWT_SECRET = getJwtSecret();
 
 // Helper to sign JWT token
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: "7d" });
 };
+
+async function exchangeCodeForTokens(codeStr) {
+  const clientId = getGoogleClientId();
+  const clientSecret = getGoogleClientSecret();
+  const redirectUri = getRedirectUri();
+
+  let tokens = null;
+  const client = getGoogleClient();
+
+  try {
+    const res = await client.getToken({
+      code: codeStr,
+      redirect_uri: redirectUri,
+    });
+    tokens = res.tokens;
+    console.log("[GoogleOAuth] ✓ Token exchange via google-auth-library OK");
+  } catch (libErr) {
+    console.warn("[GoogleOAuth] ⚠ google-auth-library getToken failed:", libErr.message);
+    if (!clientId || !clientSecret) {
+      throw libErr;
+    }
+    console.log("[GoogleOAuth] → Retrying token exchange via raw HTTP POST to oauth2.googleapis.com/token");
+    const body = new URLSearchParams({
+      code: codeStr,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+    const httpRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+    if (!httpRes.ok) {
+      const text = await httpRes.text().catch(() => "");
+      throw new Error(`Raw token exchange failed (${httpRes.status}): ${text || httpRes.statusText}`);
+    }
+    tokens = await httpRes.json();
+    console.log("[GoogleOAuth] ✓ Raw HTTP token exchange OK");
+  }
+
+  return tokens;
+}
+
+async function resolveGoogleClaims(tokens) {
+  let email, name, googleId, avatar;
+
+  try {
+    if (!tokens?.access_token) throw new Error("No access_token");
+    const userInfoResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    });
+
+    if (!userInfoResponse.ok) {
+      throw new Error(`userinfo endpoint returned ${userInfoResponse.status}`);
+    }
+
+    const userInfo = await userInfoResponse.json();
+    googleId = userInfo.sub;
+    name = userInfo.name;
+    email = userInfo.email;
+    avatar = userInfo.picture;
+
+    console.log('[GoogleOAuth] ✓ Fetched user data from /userinfo endpoint:', { 
+      email, name, googleId, avatar: avatar?.slice(0, 60) 
+    });
+  } catch (userInfoErr) {
+    console.warn('[GoogleOAuth] ⚠ /userinfo call failed, falling back to id_token:', userInfoErr.message);
+    if (!tokens?.id_token) throw userInfoErr;
+    const clientId = getGoogleClientId();
+    const client = getGoogleClient();
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: clientId,
+    });
+
+    const payload = ticket.getPayload();
+    email = payload.email;
+    name = payload.name;
+    googleId = payload.sub;
+    avatar = payload.picture;
+
+    console.log('[GoogleOAuth] ✓ Extracted user data from id_token:', { email, name, googleId, avatar: avatar?.slice(0, 60) });
+  }
+
+  return { email, name, googleId, avatar };
+}
+
+async function upsertGoogleUser({ email, name, googleId, avatar }) {
+  const fallbackUser = await User.findOne({ email: "google_user@gmail.com" });
+  if (fallbackUser) {
+    console.log('[GoogleOAuth] Found old fallback user, deleting it...');
+    await User.deleteOne({ email: "google_user@gmail.com" });
+  }
+
+  let user = await User.findOne({ googleId: googleId });
+  if (!user) {
+    user = await User.findOne({ email: email?.toLowerCase() });
+  }
+
+  if (!user) {
+    user = new User({
+      name,
+      email: email.toLowerCase(),
+      googleId,
+      avatar,
+    });
+    await user.save();
+    console.log('[GoogleOAuth] ✓ Created new user with real Google data:', user._id);
+  } else {
+    let updated = false;
+    if (!user.googleId || user.googleId !== googleId) {
+      user.googleId = googleId;
+      updated = true;
+    }
+    if (email && user.email !== email.toLowerCase()) {
+      user.email = email.toLowerCase();
+      updated = true;
+    }
+    if (avatar && (!user.avatar || user.avatar.includes('default-user'))) {
+      user.avatar = avatar;
+      updated = true;
+    }
+    if (name && (!user.name || user.name === "Google Authorized User")) {
+      user.name = name;
+      updated = true;
+    }
+    if (updated) {
+      await user.save();
+      console.log('[GoogleOAuth] ✓ Updated existing user with real Google data');
+    }
+  }
+
+  return user;
+}
 
 // Callback handler logic
 export async function handleGoogleCallback(req, res) {
@@ -34,67 +219,68 @@ export async function handleGoogleCallback(req, res) {
       return res.redirect(`${frontendOrigin}/auth?error=No+authorization+code+received`);
     }
 
+    try {
+      await User.deleteOne({ email: "google_user@gmail.com" });
+    } catch (_) { /* ignore cleanup failure */ }
+    try {
+      await User.deleteMany({ googleId: { $regex: /^google_fallback_/ } });
+    } catch (_) { /* ignore cleanup failure */ }
+
     let user;
     try {
-      // Exchange authorization code for tokens with Google
-      const { tokens } = await googleClient.getToken({
-        code: code.toString(),
-        redirect_uri: REDIRECT_URI,
-      });
-
-      googleClient.setCredentials(tokens);
-
-      const ticket = await googleClient.verifyIdToken({
-        idToken: tokens.id_token,
-        audience: GOOGLE_CLIENT_ID,
-      });
-
-      const payload = ticket.getPayload();
-      const email = payload.email;
-      const name = payload.name;
-      const googleId = payload.sub;
-      const avatar = payload.picture;
-
-      user = await User.findOne({ email: email.toLowerCase() });
-      if (!user) {
-        user = new User({
-          name,
-          email: email.toLowerCase(),
-          googleId,
-          avatar,
-        });
-        await user.save();
-      } else if (!user.googleId) {
-        user.googleId = googleId;
-        if (avatar && !user.avatar) user.avatar = avatar;
-        await user.save();
-      }
+      const tokens = await exchangeCodeForTokens(code.toString());
+      const { email, name, googleId, avatar } = await resolveGoogleClaims(tokens);
+      user = await upsertGoogleUser({ email, name, googleId, avatar });
     } catch (tokenErr) {
-      console.warn("Google token exchange warning (using verified session fallback):", tokenErr.message);
-      const fallbackUser = {
+      console.error("❌ Google token exchange failed:", tokenErr.message);
+      console.error("Full error:", tokenErr);
+      console.error("This usually means:");
+      console.error("  1. Redirect URI is not registered in Google Cloud Console");
+      console.error("  2. Add this URI: " + getRedirectUri());
+      console.error("  3. GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET must be set in backend/.env");
+      
+      const fallbackEmail = "google_user@gmail.com";
+      user = new User({
         name: "Google Authorized User",
-        email: "google_user@gmail.com",
+        email: fallbackEmail,
         googleId: "google_fallback_" + Date.now(),
         avatar: "https://lh3.googleusercontent.com/a/default-user",
-      };
-      user = await User.findOne({ email: fallbackUser.email });
-      if (!user) {
-        user = new User(fallbackUser);
-        await user.save();
-      }
+      });
+      await user.save();
+      console.log('[GoogleOAuth] Created fallback user (OAuth not configured)');
     }
 
     const token = generateToken(user._id);
-    const userObj = typeof user.toJSON === "function" ? user.toJSON() : user;
+    
+    // Ensure we get a plain object with all fields
+    let userObj;
+    if (typeof user.toJSON === "function") {
+      userObj = user.toJSON();
+    } else if (typeof user.toObject === "function") {
+      userObj = user.toObject();
+      delete userObj.password;
+    } else {
+      userObj = { ...user };
+      delete userObj.password;
+    }
+    
     const safeUser = {
-      _id: userObj._id,
-      name: userObj.name,
-      email: userObj.email,
-      avatar: userObj.avatar || "",
-      googleId: userObj.googleId || "",
-      role: userObj.role || "user",
-      createdAt: userObj.createdAt,
+      _id: String(userObj._id || user._id),
+      name: userObj.name || user.name || "User",
+      email: userObj.email || user.email,
+      avatar: userObj.avatar || user.avatar || "",
+      googleId: userObj.googleId || user.googleId || "",
+      role: userObj.role || user.role || "user",
+      createdAt: userObj.createdAt || user.createdAt,
     };
+    
+    console.log('[GoogleOAuth] ✓ Redirecting with user data:', { 
+      name: safeUser.name, 
+      email: safeUser.email, 
+      avatar: safeUser.avatar?.slice(0, 60),
+      googleId: safeUser.googleId 
+    });
+    
     return res.redirect(`${frontendOrigin}/auth?token=${token}&user=${encodeURIComponent(JSON.stringify(safeUser))}`);
   } catch (error) {
     console.error("Google Callback Error:", error);
@@ -195,9 +381,11 @@ router.post("/google", async (req, res) => {
 
     if (credential) {
       try {
-        const ticket = await googleClient.verifyIdToken({
+        const clientId = getGoogleClientId();
+        const client = getGoogleClient();
+        const ticket = await client.verifyIdToken({
           idToken: credential,
-          audience: GOOGLE_CLIENT_ID,
+          audience: clientId,
         });
         const payload = ticket.getPayload();
         email = payload.email;
@@ -223,21 +411,7 @@ router.post("/google", async (req, res) => {
       return res.status(400).json({ error: "Google credential or user info required" });
     }
 
-    let user = await User.findOne({ email: email.toLowerCase() });
-
-    if (!user) {
-      user = new User({
-        name,
-        email: email.toLowerCase(),
-        googleId,
-        avatar,
-      });
-      await user.save();
-    } else if (!user.googleId) {
-      user.googleId = googleId;
-      if (avatar && !user.avatar) user.avatar = avatar;
-      await user.save();
-    }
+    const user = await upsertGoogleUser({ email, name, googleId, avatar });
 
     const token = generateToken(user._id);
 
@@ -271,6 +445,20 @@ router.get("/me", async (req, res) => {
     return res.json({ user });
   } catch (error) {
     return res.status(401).json({ error: "Invalid or expired token" });
+  }
+});
+
+// ── 6. CLEAR OLD GOOGLE FALLBACK USER (Dev utility) ─────────────────────────
+router.delete("/clear-google-fallback", async (req, res) => {
+  try {
+    const result = await User.deleteOne({ email: "google_user@gmail.com" });
+    return res.json({ 
+      message: "Fallback user cleared", 
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error("Error clearing fallback user:", error);
+    return res.status(500).json({ error: "Failed to clear fallback user" });
   }
 });
 

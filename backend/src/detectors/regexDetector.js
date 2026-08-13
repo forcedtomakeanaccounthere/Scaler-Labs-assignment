@@ -15,13 +15,19 @@ const PATTERNS = [
     confidence: 0.99,
   },
   {
+    type: "URL",
+    regex: /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g,
+    confidence: 0.92,
+  },
+  {
     type: "PHONE_IN",
-    regex: /(?<!\d)(\+91[\s\-]?)?[6-9]\d{4}[\s\-]?\d{5}(?!\d)/g,
+    // Enhanced to catch formats like: +91 20 45053237, 9876543210, +91-98765-43210
+    regex: /(?<!\d)(?:\+91[\s\-]?)?(?:[6-9]\d{1,4}[\s\-]?\d{4,5}[\s\-]?\d{4,5}|\d{2}[\s\-]?\d{2}[\s\-]?\d{8}|[6-9]\d{9})(?!\d)/g,
     confidence: 0.93,
   },
   {
     type: "PHONE_INTL",
-    regex: /\+[1-9]\d{1,3}[\s\-]?\d{3,5}[\s\-]?\d{4,7}(?!\d)/g,
+    regex: /\+[1-9]\d{1,3}[\s\-]?\d{2,5}[\s\-]?\d{4,8}(?!\d)/g,
     confidence: 0.88,
   },
   {

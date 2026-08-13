@@ -109,6 +109,13 @@ export function extractImages(filePath) {
  * @param {string} outputPath - Where to write the output
  */
 export async function applyRedactions(filePath, entities, redactedImages, outputPath) {
+  console.log(`[docxProcessor] Applying redactions: ${entities.length} entities`);
+  const actionBreakdown = entities.reduce((acc, e) => {
+    acc[e.action] = (acc[e.action] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`[docxProcessor] Action breakdown:`, actionBreakdown);
+  
   // Try Python service for proper run-level XML manipulation
   try {
     const response = await axios.post(
@@ -121,6 +128,7 @@ export async function applyRedactions(filePath, entities, redactedImages, output
           text: e.text,
           action: e.action,
           fake_value: e.fakeValue || null,
+          generalized_value: e.generalizedValue || null,
           start: e.start,
           end: e.end,
         })),
@@ -134,12 +142,17 @@ export async function applyRedactions(filePath, entities, redactedImages, output
       { timeout: 60000 }
     );
 
-    if (response.data.success) return;
-  } catch {
+    if (response.data.success) {
+      console.log(`[docxProcessor] Python service succeeded`);
+      return;
+    }
+  } catch (err) {
+    console.log(`[docxProcessor] Python service unavailable, using ZIP fallback: ${err.message}`);
     // Fall through to ZIP-based fallback
   }
 
   // ZIP fallback: naive text replace (may corrupt complex formatting)
+  console.log(`[docxProcessor] Using ZIP fallback method`);
   applyRedactionsViaZip(filePath, entities, redactedImages, outputPath);
 }
 
@@ -148,42 +161,67 @@ export async function applyRedactions(filePath, entities, redactedImages, output
  * NOTE: This is best-effort — it won't preserve complex XML run formatting.
  */
 function applyRedactionsViaZip(filePath, entities, redactedImages, outputPath) {
+  console.log(`[applyRedactionsViaZip] Processing ${entities.length} entities`);
   const zip = new AdmZip(filePath);
   const xmlEntry = zip.getEntry("word/document.xml");
-  if (!xmlEntry) throw new Error("Invalid DOCX");
+  if (!xmlEntry) throw new Error("Invalid DOCX: missing word/document.xml");
 
   let xml = xmlEntry.getData().toString("utf8");
 
-  // Sort entities by start position descending so replacements don't shift offsets
-  // (text-level approach is approximate when working with XML)
+  // Filter actionable entities (not KEEP or REJECTED)
   const actionableEntities = entities.filter(
     (e) => e.action !== "KEEP" && e.reviewerAction !== "REJECTED"
   );
+  
+  console.log(`[applyRedactionsViaZip] ${actionableEntities.length} actionable entities`);
 
+  // Sort by text length descending to replace longer matches first (prevents partial replacements)
+  actionableEntities.sort((a, b) => (b.text?.length || 0) - (a.text?.length || 0));
+
+  let replacementCount = 0;
   for (const entity of actionableEntities) {
-    const escapedText = escapeRegex(entity.text);
+    if (!entity.text) continue;
+    
     const replacement = getReplacementText(entity);
-    // Replace in the raw XML (approximate — doesn't handle split runs)
-    xml = xml.replace(new RegExp(escapedText, "g"), replacement);
+    const escapedText = escapeRegex(entity.text);
+    
+    // Count matches before replacement
+    const regex = new RegExp(escapedText, "g");
+    const matches = xml.match(regex);
+    if (matches) {
+      console.log(`[applyRedactionsViaZip] Replacing "${entity.text.slice(0, 30)}" (${matches.length} occurrences) with "${replacement.slice(0, 30)}" (action: ${entity.action})`);
+      xml = xml.replace(regex, replacement);
+      replacementCount += matches.length;
+    }
   }
 
+  console.log(`[applyRedactionsViaZip] Total replacements made: ${replacementCount}`);
   zip.updateFile("word/document.xml", Buffer.from(xml, "utf8"));
 
   // Re-embed redacted images
   if (redactedImages && redactedImages.size > 0) {
+    console.log(`[applyRedactionsViaZip] Replacing ${redactedImages.size} images`);
     for (const [filename, buffer] of redactedImages) {
-      zip.updateFile(`word/media/${filename}`, buffer);
+      const fullPath = `word/media/${filename}`;
+      try {
+        zip.updateFile(fullPath, buffer);
+        console.log(`[applyRedactionsViaZip] Replaced image: ${filename}`);
+      } catch (err) {
+        console.warn(`[applyRedactionsViaZip] Failed to replace image ${filename}:`, err.message);
+      }
     }
   }
 
   zip.writeZip(outputPath);
+  console.log(`[applyRedactionsViaZip] Saved to: ${outputPath}`);
 }
 
 function getReplacementText(entity) {
   let replacement;
   switch (entity.action) {
     case "MASK":
-      replacement = "█".repeat(Math.min(entity.text.length, 12));
+      // Use black square characters that will appear as solid blocks
+      replacement = "■".repeat(Math.min(entity.text.length, 12));
       break;
     case "PSEUDONYMIZE":
       replacement = entity.fakeValue || "[REDACTED]";
@@ -194,7 +232,7 @@ function getReplacementText(entity) {
     default:
       replacement = "[REDACTED]";
   }
-  console.log(`[docxProcessor] Replacing "${entity.text?.slice(0, 20)}" (action: ${entity.action}) with "${replacement?.slice(0, 20)}"`);
+  console.log(`[getReplacementText] "${entity.text?.slice(0, 20)}" (${entity.action}) → "${replacement?.slice(0, 20)}"`);
   return replacement;
 }
 

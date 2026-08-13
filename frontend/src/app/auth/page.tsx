@@ -56,7 +56,7 @@ const features = [
 function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { login, user, refreshUser } = useAuth();
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"login" | "signup">(
     tabParam === "signup" ? "signup" : "login"
@@ -67,43 +67,53 @@ function AuthContent() {
     router.replace(`/auth?tab=${tab}`, { scroll: false });
   };
 
+  // Separate effect to redirect if user is already logged in (from storage)
   useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => router.replace("/redact"), 50);
-      return () => clearTimeout(timer);
+    const hasAuthParams = searchParams.has("token") || searchParams.has("user");
+    // Only redirect if user exists AND we're not processing OAuth callback
+    if (user && !hasAuthParams) {
+      router.replace("/redact");
     }
+  }, [user, searchParams, router]);
+
+  useEffect(() => {
     const token = searchParams.get("token");
     const userParam = searchParams.get("user");
     const error = searchParams.get("error");
+    
+    // Handle OAuth callback first - only process once
+    if (token && userParam) {
+      let parsedUser: any = null;
+      try {
+        parsedUser = JSON.parse(decodeURIComponent(userParam));
+        console.log("✓ Successfully parsed OAuth user:", parsedUser);
+      } catch (e) {
+        console.error("Failed to parse OAuth user param:", e);
+        try {
+          parsedUser = JSON.parse(userParam);
+        } catch {}
+      }
+      
+      if (parsedUser) {
+        login(token, parsedUser);
+        setTimeout(async () => {
+          try {
+            await refreshUser();
+          } catch {}
+        }, 300);
+        router.replace("/redact");
+        return;
+      }
+    }
+    
     if (error) {
       console.warn("Auth error from OAuth:", error);
     }
-    if (token) {
-      let parsedUser: any = null;
-      try {
-        parsedUser = userParam ? JSON.parse(decodeURIComponent(userParam)) : null;
-      } catch (e) {
-        console.error("Failed to parse OAuth user param:", e);
-      }
-      if (!parsedUser) {
-        try {
-          parsedUser = userParam ? JSON.parse(userParam) : null;
-        } catch {}
-      }
-      if (parsedUser) {
-        login(token, parsedUser);
-      } else {
-        localStorage.setItem("redactiq_token", token);
-        if (userParam) localStorage.setItem("redactiq_user", userParam);
-      }
-      const redirectTimer = setTimeout(() => {
-        router.replace("/redact");
-      }, 250);
-      return () => clearTimeout(redirectTimer);
-    }
+    
+    // Handle tab switching
     const t = searchParams.get("tab");
     if (t === "signup" || t === "login") setActiveTab(t);
-  }, [searchParams, router, login, user]);
+  }, [searchParams, router, login]); // Removed 'user' from dependencies to prevent loop
 
   return (
     <div className="flex min-h-[100dvh] w-full">
