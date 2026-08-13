@@ -7,30 +7,30 @@ A full-stack web application that ingests `.docx` files, detects all PII in both
 ## Architecture
 
 ```
-┌─────────────────────┐        REST API        ┌──────────────────────────┐
-│  Next.js Frontend   │ ◄─────────────────────► │   Express.js Backend     │
+┌─────────────────────┐        REST API          ┌──────────────────────────┐
+│  Next.js Frontend   │ ◄─────────────────────►  │   Express.js Backend     │
 │  (App Router, TS)   │                          │   + BullMQ/Redis Queue   │
 │  Drag-drop upload   │                          │   + Inline fallback      │
 │  Before/After view  │                          └────────────┬─────────────┘
 │  Review UI          │                                       │
 │  Metrics dashboard  │                          ┌────────────▼─────────────┐
 └─────────────────────┘                          │  Redaction Worker        │
-                                                  │  ├─ RegexDetector        │
-                                                  │  ├─ NER (Presidio/       │
-                                                  │  │   fallback heuristic) │
-                                                  │  ├─ Image OCR pipeline   │
-                                                  │  └─ Pseudonymizer        │
-                                                  └────────────┬─────────────┘
-                                                               │
-                                          ┌────────────────────┼──────────────┐
-                                          │                    │              │
-                                   ┌──────▼──────┐   ┌────────▼──────┐  ┌────▼────────┐
-                                   │   MongoDB   │   │     Redis     │  │  Python     │
-                                   │  (jobs,     │   │  (BullMQ job  │  │  FastAPI    │
-                                   │  entities,  │   │   queue)      │  │  service    │
-                                   │  pseudomap, │   └───────────────┘  │  (Presidio, │
-                                   │  eval)      │                       │  OCR, img)  │
-                                   └─────────────┘                       └─────────────┘
+                                                 │  ├─ RegexDetector        │
+                                                 │  ├─ NER (Presidio/       │
+                                                 │  │   fallback heuristic) │
+                                                 │  ├─ Image OCR pipeline   │
+                                                 │  └─ Pseudonymizer        │
+                                                 └───────────┬──────────────┘
+                                                             │
+                                         ┌───────────────────┼──────────────┐
+                                         │                   │              │
+                                  ┌──────▼──────┐   ┌────────▼──────┐  ┌────▼────────┐
+                                  │   MongoDB   │   │     Redis     │  │  Python     │
+                                  │  (jobs,     │   │  (BullMQ job  │  │  FastAPI    │
+                                  │  entities,  │   │   queue)      │  │  service    │
+                                  │  pseudomap, │   └───────────────┘  │  (Presidio, │
+                                  │  eval)      │                      │  OCR, img)  │
+                                  └─────────────┘                      └─────────────┘
 ```
 
 ### Tech Stack
